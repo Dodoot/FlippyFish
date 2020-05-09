@@ -7,11 +7,11 @@ public class GameSession : MonoBehaviour
 {
     // game settings
     [SerializeField] int myTargetFramerate = 60;
-    [SerializeField] int[] difficultyThresholds;
 
     // variables
     int currentScore = 0;
-    int currentThreshold = 0;
+    int currentThresholdIndex = 0;
+    int nextThreshold = 0;
 
     public int GetCurrentScore() { return currentScore; }
 
@@ -30,31 +30,47 @@ public class GameSession : MonoBehaviour
     void Start()
     {
         Application.targetFrameRate = myTargetFramerate;
+        Screen.orientation = ScreenOrientation.LandscapeLeft;
     }
 
     public void AddToCurrentScore(int scoreValue)
     {
         currentScore += scoreValue;
-
-        if (currentThreshold < difficultyThresholds.Length)
-        {
-            CheckScoreThreshold();
-        }
+        CheckScoreThreshold();
     }
 
     private void CheckScoreThreshold()
     {
-        if (currentScore >= difficultyThresholds[currentThreshold])
+        if(nextThreshold == 0)
+        {
+            int[] difficultyThresholds = FindObjectOfType<DifficultyManager>().GetDifficultyThresholds();
+            nextThreshold = difficultyThresholds[currentThresholdIndex];
+        }
+
+        if (currentScore >= nextThreshold)
         {
             FindObjectOfType<EnemiesManager>().DifficultyUp();
-            currentThreshold += 1;
+
+            currentThresholdIndex += 1;
+
+            int[] difficultyThresholds = FindObjectOfType<DifficultyManager>().GetDifficultyThresholds();
+            if(currentThresholdIndex < difficultyThresholds.Length)
+            {
+                nextThreshold = difficultyThresholds[currentThresholdIndex];
+            }
+            else
+            {
+                Debug.Log("Max difficulty reached");
+                nextThreshold = 1000; // This is very big !
+            }
         }
     }
 
     public void ResetCurrentScore()
     {
         currentScore = 0;
-        currentThreshold = 0;
+        currentThresholdIndex = 0;
+        nextThreshold = 0;
     }
 
     public void SetBestScore()

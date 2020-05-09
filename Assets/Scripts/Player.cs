@@ -13,19 +13,25 @@ public class Player : MonoBehaviour
     [SerializeField] float moveTimeSeconds = 0.35f;
     [SerializeField] AudioClip[] soundsArray;
     [SerializeField] float[] soundsVolumes;
+    [SerializeField] float inputBufferTimeSeconds = 0.1f;
 
     // Variables // Serialized only for view in inspector
     [SerializeField] string myState = "Idle";
+    [SerializeField] string currentInput = "No input";
 
-    [SerializeField] int yTarget = 0;
+    int yTarget = 0;
     float yStart = 0;
     float timeToTarget = 0;
+
+    float bufferTime = 0;
+
+    bool invulnerability = false;
 
     // Cached References
     Animator myAnimator;
     Rigidbody2D myRigidbody;
 
-    // Gets and Sets
+    // Public methods
     public int GetNumberOfLives() { return numberOfLives; }
     public void SetState(string newState) { myState = newState; }
     public void SetCollisionLayer(string newLayer)
@@ -34,6 +40,26 @@ public class Player : MonoBehaviour
         gameObject.layer = layerIndex;
     }
 
+    public void PlaySound(int soundIndex)
+    {
+        AudioSource.PlayClipAtPoint(
+            soundsArray[soundIndex],
+            Camera.main.transform.position,
+            soundsVolumes[soundIndex]);
+    }
+
+    public int GetRoundedYPos()
+    {
+        return Mathf.RoundToInt(transform.position.y);
+    }
+
+    public void SetCurrentInput(string newInput)
+    {
+        currentInput = newInput;
+        bufferTime = inputBufferTimeSeconds;
+    }
+
+    // Unity Engine methods
     void Start()
     {
         myAnimator = GetComponent<Animator>();
@@ -42,6 +68,9 @@ public class Player : MonoBehaviour
 
     void Update()
     {
+        DetectInput();
+        ResetInput();
+
         if (myState == "Idle")
         {
             Move();
@@ -62,9 +91,70 @@ public class Player : MonoBehaviour
         CorrectOrderInLayer();
     }
 
+    // Private methods
+    private void DetectInput()
+    {
+        // TODO try getting touches with Fire1 and Fire2 to be able to test with mouse click
+
+        // Currently disabled because using canvas and buttons
+
+        // // touch screen or mouse inputs
+        // foreach (Touch touch in Input.touches)
+        // {
+        //     if (touch.phase == TouchPhase.Began)
+        //     {
+        //         Vector3 touchPosition = FindObjectOfType<Camera>().ScreenToWorldPoint(touch.position);
+        //         Debug.Log(touchPosition.ToString());
+        //         if (touchPosition.x > 0)
+        //         {
+        //             currentInput = "Jump";
+        //         }
+        //         else if (touchPosition.x <= 0 & touchPosition.y < 0)
+        //         {
+        //             currentInput = "Down";
+        //         }
+        //         else if (touchPosition.x <= 0 & touchPosition.y >= 0)
+        //         {
+        //             currentInput = "Up";
+        //         }
+        //     }
+        // }
+
+        // keyboard or controller inputs
+        if (Input.GetButtonDown("Jump"))
+        {
+            currentInput = "Jump";
+            bufferTime = inputBufferTimeSeconds;
+        }
+
+        float verticalInput = Input.GetAxis("Vertical");
+        if (verticalInput > Mathf.Epsilon)
+        {
+            currentInput = "Up";
+            bufferTime = inputBufferTimeSeconds;
+        }
+        else if (verticalInput < -Mathf.Epsilon)
+        {
+            currentInput = "Down";
+            bufferTime = inputBufferTimeSeconds;
+        }
+    }
+
+    private void ResetInput()
+    {
+        if(bufferTime > 0)
+        {
+            bufferTime -= Time.deltaTime;
+        }
+        if(bufferTime <= 0)
+        {
+            currentInput = "No input";
+        }
+    }
+
     private void Jump()
     {
-        if (Input.GetButtonDown("Jump"))
+        if (currentInput == "Jump")
         {
             myAnimator.SetTrigger("Jump");
         }
@@ -72,10 +162,8 @@ public class Player : MonoBehaviour
 
     private void Move()
     {
-        float verticalInput = Input.GetAxis("Vertical");
-
         // move up
-        if (verticalInput > Mathf.Epsilon)
+        if (currentInput == "Up")
         {
             if (transform.position.y < 0.5)
             {
@@ -87,14 +175,10 @@ public class Player : MonoBehaviour
 
                 myAnimator.SetTrigger("Roll Up");
             }
-            else
-            {
-                // start animation stuck
-            }
         }
 
         // move down
-        else if (verticalInput < - Mathf.Epsilon)
+        else if (currentInput == "Down")
         {
             if (transform.position.y > - 0.5)
             {
@@ -106,32 +190,44 @@ public class Player : MonoBehaviour
 
                 myAnimator.SetTrigger("Roll Down");
             }
-            else
-            {
-                // start animation stuck
-            }
         }
     }
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        if (collision.tag == "Fire") { FindObjectOfType<SushichefManager>().TriggerSushichef("Fire"); }
-        else if (collision.tag == "Cut") { FindObjectOfType<SushichefManager>().TriggerSushichef("Cut"); }
+        if(invulnerability == false)
+        {
+            if (collision.tag == "Fire") { FindObjectOfType<SushichefManager>().TriggerSushichef("Fire"); }
+            else if (collision.tag == "Cut") { FindObjectOfType<SushichefManager>().TriggerSushichef("Cut"); }
 
-        numberOfLives -= 1;
-        if (numberOfLives > 0)
-        {
-            Hurt();
-        }
-        else if (numberOfLives <= 0)
-        {
-            Die(collision.tag);
+            if (numberOfLives > 0)
+            {
+                numberOfLives -= 1;
+            }
+
+            if (numberOfLives > 0)
+            {
+                Hurt();
+            }
+            else if (numberOfLives <= 0)
+            {
+                Die(collision.tag);
+            }
         }
     }
 
     private void Hurt()
     {
-        StartCoroutine(TurnToRed(0.5f));
+        StartCoroutine(InvulnerabilityTime(1.2f));
+        StartCoroutine(TurnToRed(1.2f));
+        FindObjectOfType<EnemiesManager>().SetStopPattern(true);
+    }
+
+    IEnumerator InvulnerabilityTime(float timeInvulnerable)
+    {
+        invulnerability = true;
+        yield return new WaitForSeconds(timeInvulnerable);
+        invulnerability = false;
     }
 
     IEnumerator TurnToRed(float timeRed)
@@ -155,14 +251,6 @@ public class Player : MonoBehaviour
         FindObjectOfType<LevelController>().LoseGame();
     }
 
-    public void PlaySound(int soundIndex)
-    {
-        AudioSource.PlayClipAtPoint(
-            soundsArray[soundIndex],
-            Camera.main.transform.position,
-            soundsVolumes[soundIndex]);
-    }
-
     private void CorrectOrderInLayer()
     {
         int newOrder = 11;
@@ -170,10 +258,5 @@ public class Player : MonoBehaviour
         else if (transform.position.y <= -0.5) { newOrder = 16; }
 
         transform.Find("Body").GetComponent<SpriteRenderer>().sortingOrder = newOrder;
-    }
-
-    public int GetRoundedYPos()
-    {
-        return Mathf.RoundToInt(transform.position.y);
     }
 }

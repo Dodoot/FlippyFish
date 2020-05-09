@@ -20,25 +20,25 @@ public class LevelController : MonoBehaviour
 
     void Update()
     {
-        OpenClosePauseMenu();
-    }
-
-    private void OpenClosePauseMenu()
-    {
         if (Input.GetKeyDown(KeyCode.Escape))
         {
-            if(pauseMenuOpened is false)
-            {
-                Time.timeScale = 0.01f;
-                pauseCanvas.SetActive(true);
-                pauseMenuOpened = true;
-            }
-            else
-            {
-                Time.timeScale = FindObjectOfType<EnemiesManager>().GetCurrentSpeed();
-                pauseCanvas.SetActive(false);
-                pauseMenuOpened = false;
-            }
+            OpenClosePauseMenu();
+        }
+    }
+
+    public void OpenClosePauseMenu()
+    {
+        if (pauseMenuOpened is false)
+        {
+            Time.timeScale = 0f;
+            pauseCanvas.SetActive(true);
+            pauseMenuOpened = true;
+        }
+        else
+        {
+            Time.timeScale = FindObjectOfType<EnemiesManager>().GetCurrentSpeed();
+            pauseCanvas.SetActive(false);
+            pauseMenuOpened = false;
         }
     }
 

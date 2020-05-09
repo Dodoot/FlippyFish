@@ -5,20 +5,24 @@ using UnityEngine;
 public class EnemiesManager : MonoBehaviour
 {
     // Params
-    [SerializeField] float startTimeSeconds = 5;
-    [SerializeField] DifficultyLevel[] difficultyLevels;
-
+    [SerializeField] float startTimeSeconds = 3;
     [SerializeField] bool infiniteLooping = true;
 
     // variables
+    DifficultyLevel[] difficultyLevels;
+
     bool firstLoop = true;
     bool emptyLoop = false;
+    bool stopPattern = false;
+    float hurtPauseTime = 0f;
     float emptyLoopTimeSeconds = 1f;
     int currentDifficulty = 0;
     float currentSpeed = 1f;
     
+    // Public methods
     public float GetCurrentSpeed() { return currentSpeed; }
 
+    public void SetStopPattern(bool newStopPattern) { stopPattern = newStopPattern; }
     public void SetInfiniteLooping(bool newInfiniteLooping) { infiniteLooping = newInfiniteLooping; }
     public void SetCurrentDifficulty(int newDifficulty) { currentDifficulty = newDifficulty; }
 
@@ -42,15 +46,21 @@ public class EnemiesManager : MonoBehaviour
         }
     }
 
+    // Unity methods
     IEnumerator Start()
     {
+        difficultyLevels = FindObjectOfType<DifficultyManager>().GetDifficultyLevels();
+        currentSpeed = difficultyLevels[currentDifficulty].GetGameSpeed();
+        Time.timeScale = currentSpeed;
+
         while (infiniteLooping)
         {
             yield return StartCoroutine(SpawnPattern());
         }
     }
 
-    IEnumerator SpawnPattern()
+    // Private methods
+    private IEnumerator SpawnPattern()
     {
         if (firstLoop is true)
         {
@@ -78,9 +88,15 @@ public class EnemiesManager : MonoBehaviour
 
         for (int i = 0; i < enemiesPrefabs.Length; i++)
         {
+            if(stopPattern == true)
+            {
+                yield return new WaitForSeconds(hurtPauseTime);
+                break;
+            }
             yield return StartCoroutine(SpawnEnemy(enemiesPrefabs[i], enemiesPositions[i], timesBetweenEnemies[i]));
-            Debug.Log("LOOOP" + i.ToString());
+            // Debug.Log("LOOOP" + i.ToString());
         }
+        stopPattern = false;
 
         float timeBetweenPatternsMinSeconds = difficultyLevels[currentDifficulty].GetTimeBetweenPatternsMinSeconds();
         float timeBetweenPatternsMaxSeconds = difficultyLevels[currentDifficulty].GetTimeBetweenPatternsMaxSeconds();
@@ -133,7 +149,7 @@ public class EnemiesManager : MonoBehaviour
 
         newEnemy.MoveOrderInLayer(yPosition * -5); // -5 because of selected order meaning
 
-        Debug.Log(waitTime.ToString());
+        // Debug.Log(waitTime.ToString());
         yield return new WaitForSeconds(waitTime);
     }
 }
